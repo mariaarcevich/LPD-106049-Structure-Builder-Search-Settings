@@ -535,7 +535,7 @@
                   </ul>
                   <p>The Keyword vs Text choice is removed from the UI. Since both forms always exist, there is no index-type setting left to change, so a configuration change can never require a full reindex and can never break Collections, facets or Headless queries that filter or sort by this field.</p>
                   <p>Turning Searchable on or off never asks for a manual reindex: new and edited content applies immediately, and existing content is caught up by a scheduled background task that administrators can view, schedule and cancel. Structure editors never need Search Admin access.</p>
-                  <p><strong>Turning Searchable on:</strong> no message in the Advanced tab and no confirmation. After publishing, an informative "Content Structure Published" modal (info tone, single Done button) is shown only in this case (not when Searchable was turned off, which is already warned before publishing). It says: "You have made changes to the search settings. These updates are processed in the background and will take some time to fully apply."</p>
+                  <p><strong>Turning Searchable on:</strong> no message in the Advanced tab and no confirmation. After publishing, the success toast adds the follow-up and stays until closed: "The content structure was published. Search updates are processed in the background and will take some time to fully apply." Only in this case: when Searchable was turned off, the background update is already explained in the confirmation before publishing.</p>
                   <p><strong>Turning Searchable off:</strong> on a published structure, unchecking a currently searchable field opens a "Change Search Settings" warning modal (same pattern as "Delete Fields") says: "Changing this setting may break search and filtering where this field is currently used once the content structure is published. Are you sure you want to continue?" (Searchable covers both here). Cancel reverts the checkbox; "Do not show me this again." skips it for later changes. On publish, the existing "Publish Content Structure Changes" danger modal also covers it: "You have made changes to the search settings that may affect existing search, filters, and Collections. Once published, these updates are processed in the background and will take some time to fully apply. Are you sure you want to continue?"</p>
                   <p>Trade-off: loses the "filter only" case (e.g. internal codes) and depends on the Search team confirming the extra index cost is acceptable. Migration: existing Keyword or Text fields become Searchable with both forms.</p>
                 </div>
@@ -616,27 +616,6 @@
       <footer class="modal__footer">
         <button class="btn btn--secondary" type="button" data-publish-cancel>Cancel</button>
         <button class="btn btn--primary btn--danger" type="button" id="publishConfirmBtn">Publish</button>
-      </footer>
-    </div>
-  </div>
-
-  <!-- P2: information after publishing (fields turned searchable) — not a confirmation -->
-  <div class="modal-overlay" id="publishInfo" hidden>
-    <div class="modal modal--info" role="dialog" aria-modal="true" aria-labelledby="publishInfoTitle" aria-describedby="publishInfoText">
-      <header class="modal__header">
-        <h2 class="modal__title" id="publishInfoTitle">
-          <svg class="lexicon-icon"><use href="#info-circle"></use></svg>
-          Content Structure Published
-        </h2>
-        <button class="btn btn--borderless btn--sm btn--icon modal__close" type="button" aria-label="Close" data-info-close>
-          <svg class="lexicon-icon"><use href="#times"></use></svg>
-        </button>
-      </header>
-      <div class="modal__body">
-        <p class="confirm-text" id="publishInfoText">You have made changes to the search settings. These updates are processed in the background and will take some time to fully apply.</p>
-      </div>
-      <footer class="modal__footer">
-        <button class="btn btn--primary" type="button" id="publishInfoBtn">Done</button>
       </footer>
     </div>
   </div>
@@ -815,11 +794,6 @@
   // ── Publish: final confirmation (like the product), then the toast carries the follow-up
   var activeVariant = 'p1';
   var publishBtn = document.getElementById('publishBtn');
-  var publishInfo = document.getElementById('publishInfo');
-  function closePublishInfo() { publishInfo.hidden = true; publishBtn.focus(); }
-  document.getElementById('publishInfoBtn').addEventListener('click', closePublishInfo);
-  publishInfo.querySelectorAll('[data-info-close]').forEach(function (b) { b.addEventListener('click', closePublishInfo); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !publishInfo.hidden) closePublishInfo(); });
   function p1Changed() {
     return Object.keys(state).some(function (name) {
       var f = state[name]; return f.p1.search !== f.p1Saved.search || f.p1.filter !== f.p1Saved.filter;
@@ -840,6 +814,7 @@
     var canReindex = document.getElementById('canReindex').checked;
     if (needsReindex) reindexPending = true;
     var msg = 'The content structure was published.';
+    if (bgInfo) msg += ' Search updates are processed in the background and will take some time to fully apply.';
     if (needsReindex) msg += canReindex
       ? ' Reindex in ' + document.getElementById('reindexLinkTpl').innerHTML + ' to apply your changes to existing content.'
       : ' Ask an administrator to reindex this content structure to apply your changes to existing content.';
@@ -851,17 +826,11 @@
     });
     document.getElementById('structurePublished').checked = true;
     render();
-    // P2: background update is information shown after publishing, not a confirmation
-    if (bgInfo) {
-      publishInfo.hidden = false;
-      document.getElementById('publishInfoBtn').focus();
-      return;
-    }
     var toast = document.getElementById('publishToast');
     toast.hidden = false;
     clearTimeout(doPublish.t);
-    // The reindex follow-up stays until closed; plain confirmations hide on their own
-    if (!needsReindex) doPublish.t = setTimeout(function () { toast.hidden = true; }, 4000);
+    // Follow-ups (reindex step, background update) stay until closed; plain confirmations hide on their own
+    if (!needsReindex && !bgInfo) doPublish.t = setTimeout(function () { toast.hidden = true; }, 4000);
   }
   document.getElementById('publishToastClose').addEventListener('click', function () { document.getElementById('publishToast').hidden = true; });
   // Publish confirmation when published search settings changed (P1: any change · P2: Searchable turned off)

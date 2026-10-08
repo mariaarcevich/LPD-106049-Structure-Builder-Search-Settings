@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Structure Builder — Advanced Tab (Current)</title>
+
+<script>(function(){
+  var S=['light','light-hc','dark','dark-hc'];
+  function apply(){try{
+    var r=document.documentElement;
+    var s=localStorage.getItem('vanilla-skin')||'light';
+    S.forEach(function(c){r.classList.remove(c);});
+    r.classList.add(S.indexOf(s)>-1?s:'light');
+    /* CMS prototype: CMS Style radii always on (4 / 8 / 16), as in the
+       current Lexicon Vanilla release where CMS Style is the only style. */
+    r.style.setProperty('--rounded-sm','4px');
+    r.style.setProperty('--rounded-md','8px');
+    r.style.setProperty('--rounded-lg','16px');
+  }catch(e){}}
+  apply();
+  window.addEventListener('pageshow',apply);
+})()</script>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="tokens-high-contrast.css">
+<link rel="stylesheet" href="tokens-dark.css">
+<link rel="stylesheet" href="components.css">
+<script src="icons.js"></script>
+
+<style>
+  /* ── Prototype-only chrome — layout glue, not new design-system components.
+        Measurements taken from the live product (CMS Structure Builder). ── */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--color-white); font-family: var(--font-family-base); color: var(--color-dark); }
+
+  .screen { display: flex; flex-direction: column; height: 100vh; }
+
+  /* Top bar — 56px tall, 36px side padding, all actions are .btn--sm */
+  .topbar {
+    height: 56px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    padding: 0 calc(var(--spacing-8) + var(--spacing-2));
+    background: var(--color-white);
+    border-bottom: 1px solid var(--color-secondary-l2);
+  }
+  .topbar__title { margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); color: var(--color-dark); }
+  .topbar__spacer { flex: 1 0 auto; }
+  /* Reindex Pending label + tooltip (P1, after publishing search changes) */
+  .pending-tip { position: relative; display: inline-flex; }
+  .pending-tip[hidden] { display: none; }
+  .pending-tip .label { cursor: default; }
+  .pending-tip .tooltip { position: absolute; top: calc(100% + var(--spacing-3)); left: 0; z-index: 40; width: max-content; max-width: 320px; visibility: hidden; opacity: 0; transition: opacity 0.12s ease; }
+  .pending-tip:hover .tooltip, .pending-tip:focus-within .tooltip { visibility: visible; opacity: 1; }
+  .topbar__right { display: flex; align-items: center; gap: var(--spacing-3); }
+  .topbar__divider { width: 1px; height: 16px; background: var(--color-secondary-l2); margin: 0 var(--spacing-3); }
+
+  /* Body: 24px gutter, 448px fields panel + centered 720px detail column */
+  .editor-body { flex: 1 1 auto; display: grid; grid-template-columns: 448px 1fr; padding: var(--spacing-7); min-height: 0; }
+
+  .fields-panel {
+    background: var(--color-light-l1);
+    border: 1px solid var(--color-light);
+    border-radius: var(--rounded-md);
+  }
+  .fields-panel__heading { margin: 0; padding: var(--spacing-7) var(--spacing-7) 0; font-size: var(--font-size-md); font-weight: var(--font-weight-bold); line-height: 1.2; color: var(--color-dark); }
+  .fields-panel__search { display: flex; align-items: center; gap: var(--spacing-3); padding: var(--spacing-5) var(--spacing-7); }
+  .fields-panel__search .search { flex: 1 1 auto; }
+  .add-field { position: relative; flex-shrink: 0; }
+  .add-field .cms-structure-dropdown { position: absolute; top: calc(100% + var(--spacing-2)); left: 0; z-index: 20; }
+  .add-field:not(.is-open) .cms-structure-dropdown { display: none; }
+  .fields-panel__search .input__field { height: 32px; background: var(--color-white); }
+
+  .fields-panel .tree { padding: var(--spacing-1) var(--spacing-7); }
+  .fields-panel .tree ul { padding-left: 0; }
+  .fields-panel .tree__row { min-height: 26px; padding: 0 var(--spacing-2); gap: var(--spacing-2); border-radius: 0; color: var(--color-secondary); }
+  .fields-panel .tree ul .tree__row { padding-left: var(--spacing-10); }
+  .fields-panel .tree__row.is-active { box-shadow: inset 0 0 0 1px var(--color-primary); }
+  .tree__icon--field { color: var(--color-primary); }
+  .tree__lock { color: var(--color-dark); opacity: 0.55; flex-shrink: 0; }
+
+  /* Field detail */
+  .detail { overflow-y: auto; }
+  .detail__inner { max-width: 720px; margin: 0 auto; padding: var(--spacing-7) var(--spacing-7) calc(var(--spacing-10) * 4); }
+
+  .detail .cms-breadcrumb { padding: var(--spacing-3) 0; margin-bottom: var(--spacing-5); }
+  .detail .tabs { padding: var(--spacing-2) 0 0 var(--spacing-7); }
+  .tab-panel { padding-top: var(--spacing-8); display: flex; flex-direction: column; align-items: flex-start; gap: var(--spacing-7); }
+  .tab-panel[hidden] { display: none; }
+  .tab-panel > .input { align-self: stretch; }
+
+  /* General */
+  .field-type { display: flex; flex-direction: column; gap: var(--spacing-2); }
+  .checkbox-stack { display: flex; flex-direction: column; gap: var(--spacing-3); }
+  .label-row { display: flex; gap: var(--spacing-3); }
+  .label-row .input__field { flex: 1 1 auto; }
+  .label-row .picker { min-width: 0; flex-shrink: 0; }
+  .help-icon { color: var(--color-secondary); }
+
+  /* Advanced — Searchable → background-update notice → dev notes */
+  .field-help { margin: 0; font-size: var(--font-size-base); line-height: 1.5; color: var(--color-secondary); }
+  .option { display: flex; flex-direction: column; align-items: flex-start; align-self: stretch; }
+  .option__row { display: flex; align-items: center; gap: var(--spacing-3); }
+  .option__desc { margin: var(--spacing-1) 0 0; font-size: var(--font-size-base); line-height: 1.5; color: var(--color-secondary); }
+  .option__desc[hidden] { display: none; }
+  .change-alert { align-self: stretch; }
+  .change-alert[hidden] { display: none; }
+  .alert__text[hidden] { display: none; }
+
+  .variant { display: flex; flex-direction: column; align-items: flex-start; gap: var(--spacing-6); align-self: stretch; }
+  .variant[hidden] { display: none; }
+  .field-help[hidden] { display: none; }
+
+  .modal-overlay[hidden] { display: none; }
+  .confirm-text { margin: 0; color: var(--color-secondary); }
+  .modal__footer > .checkbox { margin-right: auto; }
+  .publish-toast { position: fixed; left: var(--spacing-7); bottom: var(--spacing-7); z-index: 1100; max-width: 400px; }
+  .publish-toast[hidden] { display: none; }
+
+  /* Dev annotations (prototype-only, not product UI) — purple so they never read as product */
+  .dev-pin { display: inline-flex; align-items: center; justify-content: center; width: var(--spacing-5); height: var(--spacing-5); border-radius: var(--rounded-full); background: var(--color-chart-purple-d1); color: var(--color-white); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); line-height: 1; flex-shrink: 0; }
+  .dev-notes { align-self: stretch; margin-top: var(--spacing-5); padding: var(--spacing-5) var(--spacing-6); background: var(--color-chart-purple-l5); border: 1px dashed var(--color-chart-purple-l1); border-radius: var(--rounded-md); color: var(--color-dark); font-size: var(--font-size-base); line-height: 1.5; }
+  .dev-notes[hidden], .dev-pin[hidden] { display: none; }
+  .dev-notes__head { display: flex; align-items: center; gap: var(--spacing-3); margin: 0 0 var(--spacing-4); font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-chart-purple-d2); }
+  .dev-notes__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--spacing-5); }
+  .dev-note { display: grid; grid-template-columns: auto 1fr; gap: var(--spacing-3); }
+  .dev-note__title { margin: 0 0 var(--spacing-2); font-weight: var(--font-weight-bold); }
+  .dev-note p { margin: 0 0 var(--spacing-2); }
+  .dev-note ul { margin: 0 0 var(--spacing-2); padding-left: var(--spacing-6); }
+  .dev-note li { margin-bottom: var(--spacing-1); }
+  .dev-note code { font-size: var(--font-size-sm); padding: 0 var(--spacing-1); background: var(--color-white); border-radius: var(--rounded-sm); }
+
+  /* Prototype control panel (not product UI): dev notes / proposal / proposal settings */
+  .proto-bar { position: fixed; right: var(--spacing-7); bottom: calc(var(--spacing-8) + var(--spacing-10) + var(--spacing-4)); z-index: 30; display: flex; flex-direction: column; gap: var(--spacing-4); padding: var(--spacing-4) var(--spacing-5); background: var(--color-white); border: 1px solid var(--color-secondary-l3); border-radius: var(--rounded-lg); box-shadow: var(--shadow-lg); }
+  .proto-bar__row { display: flex; align-items: center; gap: var(--spacing-5); }
+  .proto-bar__row + .proto-bar__row { padding-top: var(--spacing-4); border-top: 1px solid var(--color-secondary-l3); }
+  .proto-bar__title { min-width: 88px; font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); color: var(--color-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+  .proto-bar__branch { padding-left: var(--spacing-5); border-left: 1px solid var(--color-secondary-l3); }
+  .proto-bar__branch[hidden] { display: none; }
+
+  /* Dev notes switch — purple + dashed like the notes, so it never reads as a proposal option */
+  .dev-toggle { background: var(--color-chart-purple-l5); border: 1px dashed var(--color-chart-purple-l1); color: var(--color-chart-purple-d2); }
+  .dev-toggle:hover { background: var(--color-chart-purple-l5); color: var(--color-chart-purple-d2); border-style: solid; }
+  .dev-toggle[aria-pressed="false"] { background: var(--color-white); }
+
+  /* Floating help button (product chrome) */
+  .help-fab { position: fixed; right: var(--spacing-8); bottom: var(--spacing-8); background: var(--color-dark); border-color: var(--color-dark); color: var(--color-white); box-shadow: var(--shadow-md); }
+  .help-fab:hover { background: var(--color-dark); color: var(--color-white); opacity: 0.9; }
+</style>
+</head>
+<body>
+
+<div class="screen">
+
+  <!-- ── Top bar ── -->
+  <header class="topbar">
+    <button class="btn btn--borderless btn--sm btn--icon" aria-label="Back">
+      <svg class="lexicon-icon"><use href="#angle-left"></use></svg>
+    </button>
+    <h1 class="topbar__title">New Content Structure</h1>
+    <span class="pending-tip" id="reindexPending" hidden>
+      <span class="label label--sm label--bold label--warning" tabindex="0" aria-describedby="reindexPendingTip">Reindex Pending</span>
+      <span class="tooltip tooltip--top tooltip--align-start" role="tooltip" id="reindexPendingTip"></span>
+    </span>
+    <span class="topbar__spacer"></span>
+    <div class="topbar__right">
+      <button class="btn btn--link btn--sm">
+        Customize Editor
+        <svg class="lexicon-icon"><use href="#shortcut"></use></svg>
+      </button>
+      <span class="topbar__divider" aria-hidden="true"></span>
+      <button class="btn btn--borderless btn--sm">Cancel</button>
+      <button class="btn btn--secondary btn--sm">Save</button>
+      <button class="btn btn--primary btn--sm" id="publishBtn">Publish</button>
+    </div>
+  </header>
+
+  <div class="editor-body">
+
+    <!-- ── Left: Content Structure Fields ── -->
+    <aside class="fields-panel" aria-labelledby="fieldsHeading">
+      <h2 class="fields-panel__heading" id="fieldsHeading">Content Structure Fields</h2>
+
+      <div class="fields-panel__search">
+        <div class="search">
+          <input type="search" class="input__field search__field" placeholder="Search..." aria-label="Search Fields">
+          <button class="search__submit" aria-label="Search" tabindex="-1"><svg class="lexicon-icon"><use href="#search"></use></svg></button>
+        </div>
+        <div class="add-field" id="addField">
+          <button class="btn btn--secondary btn--sm btn--icon" type="button" aria-label="Add Field" aria-haspopup="menu" aria-expanded="false">
+            <svg class="lexicon-icon"><use href="#plus"></use></svg>
+          </button>
+          <div class="cms-structure-dropdown" role="menu" aria-label="Add Field">
+            <div class="cms-structure-dropdown__group">
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#custom-field"></use></svg></span>
+                Text
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#field-area"></use></svg></span>
+                Long Text
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#text-editor"></use></svg></span>
+                Rich Text
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#number"></use></svg></span>
+                Numeric
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#decimal"></use></svg></span>
+                Decimal
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#select-from-list"></use></svg></span>
+                Select from List
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#phone"></use></svg></span>
+                Phone Number
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#calendar"></use></svg></span>
+                Date
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#date-time"></use></svg></span>
+                Date and Time
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#envelope-closed"></use></svg></span>
+                Email
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#check-square"></use></svg></span>
+                Boolean
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--field"><svg class="lexicon-icon"><use href="#upload"></use></svg></span>
+                Upload
+              </button>
+            </div>
+            <div class="cms-structure-dropdown__divider" role="separator"></div>
+            <div class="cms-structure-dropdown__group">
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--structure"><svg class="lexicon-icon"><use href="#relationship"></use></svg></span>
+                Select Related Content
+              </button>
+              <button class="cms-structure-dropdown__item" type="button" role="menuitem">
+                <span class="cms-structure-dropdown__sticker cms-structure-dropdown__sticker--structure"><svg class="lexicon-icon"><use href="#edit-layout"></use></svg></span>
+                Referenced Content Structure
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ul class="tree" role="tree" aria-labelledby="fieldsHeading">
+        <li role="treeitem" aria-expanded="true">
+          <div class="tree__row">
+            <button class="tree__toggle" aria-label="Collapse"><svg class="lexicon-icon lexicon-icon-sm"><use href="#angle-down"></use></svg></button>
+            <svg class="lexicon-icon tree__icon"><use href="#edit-layout"></use></svg>
+            <span class="tree__label">Searching improvements</span>
+          </div>
+          <ul role="group">
+            <li role="treeitem" aria-selected="false">
+              <div class="tree__row" data-field="Title" data-type="Text">
+                <svg class="lexicon-icon tree__icon tree__icon--field"><use href="#custom-field"></use></svg>
+                <span class="tree__label">Title</span>
+                <svg class="lexicon-icon lexicon-icon-sm tree__lock" aria-label="Locked"><use href="#lock"></use></svg>
+              </div>
+            </li>
+            <li role="treeitem" aria-selected="true">
+              <div class="tree__row is-active" data-field="Text" data-type="Text">
+                <svg class="lexicon-icon tree__icon tree__icon--field"><use href="#custom-field"></use></svg>
+                <span class="tree__label">Text</span>
+              </div>
+            </li>
+            <li role="treeitem" aria-selected="false">
+              <div class="tree__row" data-field="Description" data-type="Long Text">
+                <svg class="lexicon-icon tree__icon tree__icon--field"><use href="#field-area"></use></svg>
+                <span class="tree__label">Description</span>
+              </div>
+            </li>
+            <li role="treeitem" aria-selected="false">
+              <div class="tree__row" data-field="Body" data-type="Rich Text">
+                <svg class="lexicon-icon tree__icon tree__icon--field"><use href="#text-editor"></use></svg>
+                <span class="tree__label">Body</span>
+              </div>
+            </li>
+            <li role="treeitem" aria-selected="false">
+              <div class="tree__row" data-field="Status" data-type="Select from List">
+                <svg class="lexicon-icon tree__icon tree__icon--field"><use href="#select-from-list"></use></svg>
+                <span class="tree__label">Status</span>
+              </div>
+            </li>
+            <li role="treeitem" aria-selected="false">
+              <div class="tree__row" data-field="Release Date" data-type="Date">
+                <svg class="lexicon-icon tree__icon tree__icon--field"><use href="#calendar"></use></svg>
+                <span class="tree__label">Release Date</span>
+              </div>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- ── Right: field detail ── -->
+    <main class="detail">
+      <div class="detail__inner">
+
+        <nav aria-label="Field Path">
+          <ol class="cms-breadcrumb">
+            <li class="cms-breadcrumb__item">
+              <a href="#">Searching improvements</a>
+              <svg class="lexicon-icon cms-breadcrumb__sep"><use href="#slash"></use></svg>
+            </li>
+            <li class="cms-breadcrumb__item" aria-current="page">
+              <span id="fieldName">Text</span>
+            </li>
+          </ol>
+        </nav>
+
+        <nav class="tabs" role="tablist">
+          <button class="tabs__tab" role="tab" aria-selected="false" aria-controls="panel-general" id="tab-general">General</button>
+          <button class="tabs__tab is-active" role="tab" aria-selected="true" aria-controls="panel-advanced" id="tab-advanced">Advanced</button>
+        </nav>
+
+        <!-- General -->
+        <section class="tab-panel" id="panel-general" role="tabpanel" aria-labelledby="tab-general" hidden>
+          <div class="field-type">
+            <span class="input__label">Field Type</span>
+            <span class="label label--sm label--bold label--info" id="fieldType">Text</span>
+          </div>
+
+          <div class="input">
+            <label class="input__label" for="fieldLabel">Label <span class="input__required">*</span></label>
+            <div class="label-row">
+              <input class="input__field" id="fieldLabel" value="Text">
+              <div class="picker lang-picker">
+                <button class="btn btn--secondary picker__trigger" type="button" aria-label="Select Language, Currently English (United States)">
+                  <span class="lang-picker__flag flag-us"></span>
+                  <svg class="lexicon-icon"><use href="#caret-double-l"></use></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="input">
+            <label class="input__label" for="fieldRef">Field Name <span class="input__required">*</span></label>
+            <input class="input__field" id="fieldRef" value="text">
+          </div>
+
+          <div class="checkbox-stack">
+            <label class="checkbox">
+              <input type="checkbox" class="checkbox__input">
+              <span class="checkbox__box">
+                <svg class="checkbox__icon checkbox__icon--check"><use href="#check-small"></use></svg>
+                <svg class="checkbox__icon checkbox__icon--hr"><use href="#hr"></use></svg>
+              </span>
+              <span class="checkbox__label">Mandatory</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" class="checkbox__input" checked>
+              <span class="checkbox__box">
+                <svg class="checkbox__icon checkbox__icon--check"><use href="#check-small"></use></svg>
+                <svg class="checkbox__icon checkbox__icon--hr"><use href="#hr"></use></svg>
+              </span>
+              <span class="checkbox__label">Localizable</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" class="checkbox__input">
+              <span class="checkbox__box">
+                <svg class="checkbox__icon checkbox__icon--check"><use href="#check-small"></use></svg>
+                <svg class="checkbox__icon checkbox__icon--hr"><use href="#hr"></use></svg>
+              </span>
+              <span class="checkbox__label">Accept Unique Values Only</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" class="checkbox__input">
+              <span class="checkbox__box">
+                <svg class="checkbox__icon checkbox__icon--check"><use href="#check-small"></use></svg>
+                <svg class="checkbox__icon checkbox__icon--hr"><use href="#hr"></use></svg>
+              </span>
+              <span class="checkbox__label">Limit Characters</span>
+            </label>
+          </div>
+
+          <div class="input">
+            <label class="input__label" for="fieldErc">ERC <span class="input__required">*</span>
+              <svg class="lexicon-icon help-icon" aria-label="More Info"><use href="#question-circle-full"></use></svg>
+            </label>
+            <input class="input__field" id="fieldErc" value="7748e8c3-b465-45b3-ac7c-81ed9e0aa0ba">
+          </div>
+        </section>
+
+        <!-- Advanced -->
+        <section class="tab-panel" id="panel-advanced" role="tabpanel" aria-labelledby="tab-advanced">
+
+          <!-- ═══ Proposal 1 — Search + Filter checkboxes (intermediate step, LPD-106049) ═══ -->
+          <div class="variant" data-variant="p1">
+            <div class="option">
+              <div class="option__row">
+                <label class="checkbox">
+                  <input type="checkbox" class="checkbox__input" id="p1Search" checked>
+                  <span class="checkbox__box">
+                    <svg class="checkbox__icon checkbox__icon--check"><use href="#check-small"></use></svg>
+                    <svg class="checkbox__icon checkbox__icon--hr"><use href="#hr"></use></svg>
+                  </span>
+                  <span class="checkbox__label">Searchable</span>
+                </label>
+                <span class="dev-pin" aria-label="Dev note 1">1</span>
+                <span class="dev-pin" aria-label="Dev note 4">4</span>
+                <span class="dev-pin" aria-label="Dev note 5">5</span>
+              </div>
+              <p class="option__desc">Allow users to search by this field.</p>
+            </div>
+            <div class="option">
+              <div class="option__row">
+                <label class="checkbox">
+                  <input type="checkbox" class="checkbox__input" id="p1Filter" checked>
+                  <span class="checkbox__box">
+                    <svg class="checkbox__icon checkbox__icon--check"><use href="#check-small"></use></svg>
+                    <svg class="checkbox__icon checkbox__icon--hr"><use href="#hr"></use></svg>
+                  </span>
+                  <span class="checkbox__label">Filterable</span>
+                </label>
+                <span class="dev-pin" aria-label="Dev note 2">2</span>
+                <span class="dev-pin" aria-label="Dev note 3">3</span>
+              </div>
+              <p class="option__desc">Enable filtering and sorting by this field.</p>
+            </div>
+
+
+            <!-- Dev annotations — prototype only, not product UI -->
+            <aside class="dev-notes" aria-label="Dev Notes">
+              <p class="dev-notes__head"><svg class="lexicon-icon"><use href="#code"></use></svg> Dev Notes</p>
+              <ol class="dev-notes__list">
+              <li class="dev-note">
+                <span class="dev-pin" aria-hidden="true">1</span>
+                <div>
+                  <p class="dev-note__title">Two Independent Index Options</p>
+                  <ul>
+                    <li><strong>Searchable</strong> → indexes the <strong>Text</strong> form (analyzed, language-aware) for full-text search.</li>
+                    <li><strong>Filterable</strong> → indexes the <strong>Keyword</strong> form (value as-is) for filters, sorting and facet counts.</li>
+                  </ul>
+                  <p>Both checked → both forms are indexed (not possible today). Both unchecked → the field is not indexed, so no extra on/off option is needed. Note: here Searchable means full-text only; Filterable also covers sorting and facet counts.</p>
+                </div>
+              </li>
+              <li class="dev-note">
+                <span class="dev-pin" aria-hidden="true">2</span>
+                <div>
+                  <p class="dev-note__title">Defaults by Field Type</p>
+                  <p>Preset when the field is created, so most editors never need to touch them:</p>
+                  <ul>
+                    <li><strong>Text:</strong> Searchable and Filterable.</li>
+                    <li><strong>Long Text, Rich Text:</strong> Searchable only.</li>
+                    <li><strong>Select from List, Date, Date and Time, Numeric, Decimal, Boolean:</strong> Filterable only.</li>
+                  </ul>
+                  <p>Migration keeps today's behavior: Keyword → Filterable, Text → Searchable.</p>
+                </div>
+              </li>
+              <li class="dev-note">
+                <span class="dev-pin" aria-hidden="true">3</span>
+                <div>
+                  <p class="dev-note__title">Changes Still Need a Reindex</p>
+                  <p>Changing an option on a field that already has content only affects new and edited content; existing content needs a reindex that only administrators can run (Control Panel &gt; Search &gt; Index Actions).</p>
+                  <p>No persistent message in the Advanced tab (LPD-106049). Same pattern as the existing "Delete Fields" modal:</p>
+                  <ul>
+                    <li><strong>On change:</strong> on a published structure, unchecking Searchable / Filterable when it is currently enabled opens a "Change Search Settings" warning modal whose copy follows the option: "Changing this setting may break search (Searchable) / filtering (Filterable) where this field is currently used once the content structure is published. Are you sure you want to continue?" Enabling an option or reverting an unpublished change shows nothing. Cancel reverts the checkbox; "Do not show me this again." skips it for later changes.</li>
+                    <li><strong>On publish:</strong> the existing "Publish Content Structure Changes" danger modal also covers these changes, naming what changed (search settings, filter settings, or search and filter settings): "You have made changes to the search settings that may affect existing content once published. Be aware that results may be inconsistent until you reindex existing content (or, without Search Admin access: until an administrator reindexes existing content). Are you sure you want to continue?" (New and edited content uses the new settings, older content the previous ones.) No link here. Cancel / Publish.</li>
+                    <li><strong>After publishing:</strong> reindexing before publishing does nothing, so the follow-up comes now. The success toast carries the next step and stays until closed: users who can reindex (Search Admin access) get "Reindex in Index Actions…" with a direct link that opens in a new window; everyone else gets "Ask an administrator to reindex this content structure…", with no link.</li>
+                    <li><strong>Reindex Pending:</strong> the structure shows a "Reindex Pending" warning label (next to its title here, and ideally in the Content Structures list) until existing content is reindexed. Its tooltip gives the path to admins ("Reindex it in Control Panel &gt; Search &gt; Index Actions") and tells other users to ask an administrator. Admins could also be notified automatically.</li>
+                  </ul>
+                </div>
+              </li>
+              <li class="dev-note">
+                <span class="dev-pin" aria-hidden="true">4</span>
+                <div>
+                  <p class="dev-note__title">No Language Selector</p>
+                  <p>The per-field language selector is removed.</p>
+                  <ul>
+                    <li><strong>Localizable fields:</strong> each translation is analyzed with its own language.</li>
+                    <li><strong>Non-localizable fields:</strong> use the content's language. If it can't be determined, fall back to the default language of the Space (or site) where the content is created, and to the instance default language only as a last resort.</li>
+                  </ul>
+                </div>
+              </li>
+              <li class="dev-note">
+                <span class="dev-pin" aria-hidden="true">5</span>
+                <div>
+                  <p class="dev-note__title">No Per-Field AI Search Option</p>
+                  <p>Removed on purpose. Semantic search builds one embedding per content item from several fields, so an AI option on each field doesn't match how it works, and editors can't judge which fields matter or what they cost. If control is needed, it would live at structure level (e.g. "Fields Used in AI Search"). TBD.</p>
+                </div>
+              </li>
+              </ol>
+            </aside>
+          </div>
+
+          <!-- ═══ Proposal 2 — Tibor: always index both forms (Search spike target) ═══ -->
+          <div class="variant" data-variant="p2" hidden>
+            <div class="option">
+              <div class="option__row">
+                <label class="checkbox">
+                  <input type="checkbox" class="checkbox__input" id="p2Searchable" checked>
+                  <span class="checkbox__box">
+                    <svg class="checkbox__icon checkbox__icon--check"><use href="#check-small"></use></svg>
+                    <svg class="checkbox__icon checkbox__icon--hr"><use href="#hr"></use></svg>
+                  </span>
+                  <span class="checkbox__label">Searchable</span>
+                </label>
+                <span class="dev-pin" aria-label="Dev note 1">1</span>
+                <span class="dev-pin" aria-label="Dev note 2">2</span>
+                <span class="dev-pin" aria-label="Dev note 3">3</span>
+              </div>
+              <p class="option__desc">Allow searching, filtering, and sorting by this field.</p>
+            </div>
+
+
+            <!-- Dev annotations — prototype only, not product UI -->
+            <aside class="dev-notes" aria-label="Dev Notes">
+              <p class="dev-notes__head"><svg class="lexicon-icon"><use href="#code"></use></svg> Dev Notes</p>
+              <ol class="dev-notes__list">
+              <li class="dev-note">
+                <span class="dev-pin" aria-hidden="true">1</span>
+                <div>
+                  <p class="dev-note__title">Searchable Always Indexes Both Forms: Keyword and Text</p>
+                  <p>When a field is searchable, the search framework must always index it in both forms at the same time:</p>
+                  <ul>
+                    <li><strong>Keyword</strong> (value stored as-is): filters, sorting and facet counts.</li>
+                    <li><strong>Text</strong> (analyzed: tokenized, accent/plural folding, language-aware): full-text search.</li>
+                  </ul>
+                  <p>The Keyword vs Text choice is removed from the UI. Since both forms always exist, there is no index-type setting left to change, so a configuration change can never require a full reindex and can never break Collections, facets or Headless queries that filter or sort by this field.</p>
+                  <p>Turning Searchable on or off never asks for a manual reindex: new and edited content applies immediately, and existing content is caught up by a scheduled background task that administrators can view, schedule and cancel. Structure editors never need Search Admin access.</p>
+                  <p><strong>Turning Searchable on:</strong> no message in the Advanced tab and no confirmation. After publishing, an informative "Content Structure Published" modal (info tone, single Done button) says: "You have made changes to the search settings. These updates are processed in the background and will take some time to fully apply."</p>
+                  <p><strong>Turning Searchable off:</strong> on a published structure, unchecking a currently searchable field opens a "Change Search Settings" warning modal (same pattern as "Delete Fields") says: "Changing this setting may break search and filtering where this field is currently used once the content structure is published. Are you sure you want to continue?" (Searchable covers both here). Cancel reverts the checkbox; "Do not show me this again." skips it for later changes. On publish, the existing "Publish Content Structure Changes" danger modal also covers it: "You have made changes to the search settings that may affect existing search, filters, and Collections. Once published, these updates are processed in the background and will take some time to fully apply. Are you sure you want to continue?"</p>
+                  <p>Trade-off: loses the "filter only" case (e.g. internal codes) and depends on the Search team confirming the extra index cost is acceptable. Migration: existing Keyword or Text fields become Searchable with both forms.</p>
+                </div>
+              </li>
+              <li class="dev-note">
+                <span class="dev-pin" aria-hidden="true">2</span>
+                <div>
+                  <p class="dev-note__title">No Per-Field AI Search Option</p>
+                  <p>Removed on purpose. Semantic search builds one embedding per content item from several fields, so an AI option on each field doesn't match how it works, and editors can't judge which fields matter or what they cost. If control is needed, it would live at structure level (e.g. "Fields Used in AI Search"). TBD.</p>
+                </div>
+              </li>
+              <li class="dev-note">
+                <span class="dev-pin" aria-hidden="true">3</span>
+                <div>
+                  <p class="dev-note__title">No Language Selector</p>
+                  <p>The per-field language selector is removed.</p>
+                  <ul>
+                    <li><strong>Localizable fields:</strong> each translation is analyzed with its own language.</li>
+                    <li><strong>Non-localizable fields:</strong> use the content's language. If it can't be determined, fall back to the default language of the Space (or site) where the content is created, and to the instance default language only as a last resort.</li>
+                  </ul>
+                </div>
+              </li>
+              </ol>
+            </aside>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Change confirmation — same pattern as the product's "Delete Fields" modal.
+       Opens when search settings change on a published structure. -->
+  <div class="modal-overlay" id="changeConfirm" hidden>
+    <div class="modal modal--warning" role="alertdialog" aria-modal="true" aria-labelledby="changeConfirmTitle" aria-describedby="changeConfirmText">
+      <header class="modal__header">
+        <h2 class="modal__title" id="changeConfirmTitle">
+          <svg class="lexicon-icon"><use href="#warning-full"></use></svg>
+          Change Search Settings
+        </h2>
+        <button class="btn btn--borderless btn--sm btn--icon modal__close" type="button" aria-label="Close" data-cancel>
+          <svg class="lexicon-icon"><use href="#times"></use></svg>
+        </button>
+      </header>
+      <div class="modal__body">
+        <p class="confirm-text" id="changeConfirmText"></p>
+      </div>
+      <footer class="modal__footer">
+        <label class="checkbox">
+          <input type="checkbox" class="checkbox__input" id="changeConfirmSkip">
+          <span class="checkbox__box">
+            <svg class="checkbox__icon checkbox__icon--check"><use href="#check-small"></use></svg>
+            <svg class="checkbox__icon checkbox__icon--hr"><use href="#hr"></use></svg>
+          </span>
+          <span class="checkbox__label">Do not show me this again.</span>
+        </label>
+        <button class="btn btn--secondary" type="button" data-cancel>Cancel</button>
+        <button class="btn btn--primary btn--warning" type="button" id="changeConfirmBtn">Continue</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Publish confirmation — same pattern as the product's "Publish Content Structure Changes" modal -->
+  <div class="modal-overlay" id="publishConfirm" hidden>
+    <div class="modal modal--danger" id="publishModal" role="alertdialog" aria-modal="true" aria-labelledby="publishConfirmTitle" aria-describedby="publishConfirmText">
+      <header class="modal__header">
+        <h2 class="modal__title" id="publishConfirmTitle">
+          <svg class="lexicon-icon"><use href="#exclamation-full" id="publishModalIcon"></use></svg>
+          Publish Content Structure Changes
+        </h2>
+        <button class="btn btn--borderless btn--sm btn--icon modal__close" type="button" aria-label="Close" data-publish-cancel>
+          <svg class="lexicon-icon"><use href="#times"></use></svg>
+        </button>
+      </header>
+      <div class="modal__body">
+        <p class="confirm-text" id="publishConfirmText"></p>
+      </div>
+      <footer class="modal__footer">
+        <button class="btn btn--secondary" type="button" data-publish-cancel>Cancel</button>
+        <button class="btn btn--primary btn--danger" type="button" id="publishConfirmBtn">Publish</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- P2: information after publishing (fields turned searchable) — not a confirmation -->
+  <div class="modal-overlay" id="publishInfo" hidden>
+    <div class="modal modal--info" role="dialog" aria-modal="true" aria-labelledby="publishInfoTitle" aria-describedby="publishInfoText">
+      <header class="modal__header">
+        <h2 class="modal__title" id="publishInfoTitle">
+          <svg class="lexicon-icon"><use href="#info-circle"></use></svg>
+          Content Structure Published
+        </h2>
+        <button class="btn btn--borderless btn--sm btn--icon modal__close" type="button" aria-label="Close" data-info-close>
+          <svg class="lexicon-icon"><use href="#times"></use></svg>
+        </button>
+      </header>
+      <div class="modal__body">
+        <p class="confirm-text" id="publishInfoText">You have made changes to the search settings. These updates are processed in the background and will take some time to fully apply.</p>
+      </div>
+      <footer class="modal__footer">
+        <button class="btn btn--primary" type="button" id="publishInfoBtn">Done</button>
+      </footer>
+    </div>
+  </div>
+
+  <div class="alert alert--toast alert--success publish-toast" id="publishToast" role="status" hidden>
+    <div class="alert__content">
+      <svg class="lexicon-icon"><use href="#check-circle-full"></use></svg>
+      <p class="alert__text"><strong>Success:</strong> <span id="publishToastText">The content structure was published.</span></p>
+    </div>
+    <button class="btn btn--borderless btn--sm btn--icon alert__close" type="button" aria-label="Close" id="publishToastClose">
+      <svg class="lexicon-icon"><use href="#times"></use></svg>
+    </button>
+  </div>
+  <template id="reindexLinkTpl"><a class="alert__link" href="/group/control_panel/manage?p_p_id=com_liferay_portal_search_admin_web_portlet_SearchAdminPortlet&amp;_com_liferay_portal_search_admin_web_portlet_SearchAdminPortlet_tabs1=index-actions" target="_blank" rel="noopener">Index Actions<span class="sr-only"> (Opens a New Window)</span><svg class="lexicon-icon" aria-hidden="true"><use href="#shortcut"></use></svg></a></template>
+
+  <!-- Prototype controls — not part of the product UI.
+       Row 1: dev notes · Row 2: proposal · Row 3: settings of the selected proposal -->
+  <div class="proto-bar" role="group" aria-label="Prototype Options">
+    <div class="proto-bar__row">
+      <button class="btn btn--sm dev-toggle" type="button" id="devNotesBtn" aria-pressed="true">
+        <svg class="lexicon-icon"><use href="#code"></use></svg>
+        <span id="devNotesBtnText">Hide Dev Notes</span>
+      </button>
+    </div>
+    <div class="proto-bar__row">
+      <span class="proto-bar__title">Proposal</span>
+      <div class="btn-group" id="variantSwitch">
+        <button class="btn btn--secondary btn--sm is-active" data-variant="p1" aria-pressed="true">1 · Searchable + Filterable</button>
+        <button class="btn btn--secondary btn--sm" data-variant="p2" aria-pressed="false">2 · Always Index Both</button>
+      </div>
+    </div>
+    <div class="proto-bar__row">
+      <span class="proto-bar__title">Settings</span>
+      <label class="toggle toggle--sm">
+        <input type="checkbox" class="toggle__input" id="structurePublished" checked>
+        <span class="toggle__track"><span class="toggle__dot"></span></span>
+        <span class="toggle__label">Structure Published</span>
+      </label>
+      <label class="toggle toggle--sm proto-bar__branch" id="canReindexToggle">
+        <input type="checkbox" class="toggle__input" id="canReindex" checked>
+        <span class="toggle__track"><span class="toggle__dot"></span></span>
+        <span class="toggle__label">User Can Reindex</span>
+      </label>
+    </div>
+  </div>
+
+  <button class="btn btn--icon btn--pill btn--lg help-fab" aria-label="Help">
+    <svg class="lexicon-icon"><use href="#question-mark"></use></svg>
+  </button>
+</div>
+
+<script>
+(function () {
+  // Tabs
+  var tabs = document.querySelectorAll('.detail .tabs__tab');
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (t) {
+        var on = t === tab;
+        t.classList.toggle('is-active', on);
+        t.setAttribute('aria-selected', on);
+        document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+      });
+    });
+  });
+
+  // ── Field model: type, Collections using it, and per-proposal saved/current state
+  function defaultsFor(type) {
+    if (type === 'Text') return { search: true, filter: true };
+    if (type === 'Long Text' || type === 'Rich Text') return { search: true, filter: false };
+    return { search: false, filter: true };   // Select, Date, Numeric, Boolean…
+  }
+  var usedBy = {
+    'Title': ['Latest Releases'],
+    'Text': ['Featured Articles'],
+    'Description': ['Knowledge Base'],
+    'Status': ['Upcoming Launches', 'Archived Releases'],
+    'Release Date': ['Upcoming Launches']
+  };
+  var state = {};
+  var rows = document.querySelectorAll('.tree__row[data-field]');
+  rows.forEach(function (row) {
+    var d = defaultsFor(row.getAttribute('data-type'));
+    state[row.getAttribute('data-field')] = {
+      type: row.getAttribute('data-type'),
+      p1Saved: { search: d.search, filter: d.filter }, p1: { search: d.search, filter: d.filter },
+      p2Saved: true, p2: true
+    };
+    // Demo: Body starts not searchable in P2, to try the "turn on" path
+    if (row.getAttribute('data-field') === 'Body') { state.Body.p2Saved = false; state.Body.p2 = false; }
+  });
+  var current = 'Text';
+  var reindexPending = false;   // P1: set after publishing search changes, until a reindex runs
+
+  var p1Search = document.getElementById('p1Search');
+  var p1Filter = document.getElementById('p1Filter');
+  var p2Searchable = document.getElementById('p2Searchable');
+
+  function render() {
+    var f = state[current];
+    p1Search.checked = f.p1.search;
+    p1Filter.checked = f.p1.filter;
+    p2Searchable.checked = f.p2;
+    var published = document.getElementById('structurePublished').checked;
+    var onP1 = !document.querySelector('.variant[data-variant="p1"]').hidden;
+    // Permission branch (P1 only): reindex link after publishing vs. ask an administrator
+    document.getElementById('canReindexToggle').hidden = !published || !onP1;
+    document.getElementById('reindexPending').hidden = !(reindexPending && onP1 && published);
+    document.getElementById('reindexPendingTip').textContent = document.getElementById('canReindex').checked
+      ? 'Existing content still uses the previous search settings. Reindex it in Control Panel > Search > Index Actions.'
+      : 'Existing content still uses the previous search settings. Ask an administrator to reindex this content structure.';
+  }
+  // ── Change confirmation (published structures only), like the "Delete Fields" modal
+  var confirmOverlay = document.getElementById('changeConfirm');
+  var skipConfirm = { p1: false, p2: false };   // "Do not show me this again." (per proposal, this session)
+  var pending = null;
+  function confirmText(variant, key) {
+    // P1: copy follows the option that changed · P2: Searchable covers both search and filtering
+    var what = variant === 'p2' ? 'search and filtering' : (key === 'filter' ? 'filtering' : 'search');
+    return 'Changing this setting may break ' + what + ' where this field is currently used once the content structure is published. Are you sure you want to continue?';
+  }
+  function needsConfirm(variant, key, on) {
+    if (!document.getElementById('structurePublished').checked || skipConfirm[variant]) return false;
+    // Only when removing an option that is live in the published structure (enabling or reverting can't break anything)
+    var saved = variant === 'p1' ? state[current].p1Saved[key] : state[current].p2Saved;
+    return !on && saved;
+  }
+  function apply(variant, key, on) {
+    if (variant === 'p1') state[current].p1[key] = on; else state[current].p2 = on;
+    render();
+  }
+  function onOptionChange(input, variant, key) {
+    input.addEventListener('change', function () {
+      var on = input.checked;
+      if (!needsConfirm(variant, key, on)) { apply(variant, key, on); return; }
+      input.checked = !on;   // revert until confirmed
+      pending = { input: input, variant: variant, key: key, on: on };
+      document.getElementById('changeConfirmText').textContent = confirmText(variant, key);
+      document.getElementById('changeConfirmSkip').checked = false;
+      confirmOverlay.hidden = false;
+      document.getElementById('changeConfirmBtn').focus();
+    });
+  }
+  function closeConfirm() { confirmOverlay.hidden = true; if (pending) pending.input.focus(); pending = null; }
+  document.getElementById('changeConfirmBtn').addEventListener('click', function () {
+    var p = pending;
+    if (document.getElementById('changeConfirmSkip').checked) skipConfirm[p.variant] = true;
+    closeConfirm();
+    apply(p.variant, p.key, p.on);
+  });
+  confirmOverlay.querySelectorAll('[data-cancel]').forEach(function (b) { b.addEventListener('click', closeConfirm); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !confirmOverlay.hidden) closeConfirm(); });
+  onOptionChange(p1Search, 'p1', 'search');
+  onOptionChange(p1Filter, 'p1', 'filter');
+  onOptionChange(p2Searchable, 'p2', null);
+  document.getElementById('structurePublished').addEventListener('change', render);
+  document.getElementById('canReindex').addEventListener('change', render);
+
+  // Tree selection → header, General fields and Advanced state
+  rows.forEach(function (row) {
+    row.addEventListener('click', function () {
+      rows.forEach(function (r) {
+        r.classList.toggle('is-active', r === row);
+        r.parentElement.setAttribute('aria-selected', r === row);
+      });
+      current = row.getAttribute('data-field');
+      document.getElementById('fieldName').textContent = current;
+      document.getElementById('fieldLabel').value = current;
+      document.getElementById('fieldRef').value = current.replace(/ (\w)/g, function (m, c) { return c.toUpperCase(); }).replace(/^\w/, function (c) { return c.toLowerCase(); });
+      document.getElementById('fieldType').textContent = state[current].type;
+      render();
+    });
+  });
+  render();
+
+  // ── Publish: final confirmation (like the product), then the toast carries the follow-up
+  var activeVariant = 'p1';
+  var publishBtn = document.getElementById('publishBtn');
+  var publishInfo = document.getElementById('publishInfo');
+  function closePublishInfo() { publishInfo.hidden = true; publishBtn.focus(); }
+  document.getElementById('publishInfoBtn').addEventListener('click', closePublishInfo);
+  publishInfo.querySelectorAll('[data-info-close]').forEach(function (b) { b.addEventListener('click', closePublishInfo); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !publishInfo.hidden) closePublishInfo(); });
+  function p1Changed() {
+    return Object.keys(state).some(function (name) {
+      var f = state[name]; return f.p1.search !== f.p1Saved.search || f.p1.filter !== f.p1Saved.filter;
+    });
+  }
+  function p2Changed() {
+    return Object.keys(state).some(function (name) { return state[name].p2 !== state[name].p2Saved; });
+  }
+  function doPublish() {
+    var wasPublished = document.getElementById('structurePublished').checked;
+    var needsReindex = activeVariant === 'p1' && wasPublished && p1Changed();
+    var bgInfo = activeVariant === 'p2' && wasPublished && p2Changed();
+    var canReindex = document.getElementById('canReindex').checked;
+    if (needsReindex) reindexPending = true;
+    var msg = 'The content structure was published.';
+    if (needsReindex) msg += canReindex
+      ? ' Reindex in ' + document.getElementById('reindexLinkTpl').innerHTML + ' to apply your changes to existing content.'
+      : ' Ask an administrator to reindex this content structure to apply your changes to existing content.';
+    document.getElementById('publishToastText').innerHTML = msg;
+    Object.keys(state).forEach(function (name) {
+      var f = state[name];
+      f.p1Saved = { search: f.p1.search, filter: f.p1.filter };
+      f.p2Saved = f.p2;
+    });
+    document.getElementById('structurePublished').checked = true;
+    render();
+    // P2: background update is information shown after publishing, not a confirmation
+    if (bgInfo) {
+      publishInfo.hidden = false;
+      document.getElementById('publishInfoBtn').focus();
+      return;
+    }
+    var toast = document.getElementById('publishToast');
+    toast.hidden = false;
+    clearTimeout(doPublish.t);
+    // The reindex follow-up stays until closed; plain confirmations hide on their own
+    if (!needsReindex) doPublish.t = setTimeout(function () { toast.hidden = true; }, 4000);
+  }
+  document.getElementById('publishToastClose').addEventListener('click', function () { document.getElementById('publishToast').hidden = true; });
+  // Publish confirmation when published search settings changed (P1: any change · P2: Searchable turned off)
+  var publishOverlay = document.getElementById('publishConfirm');
+  function p2TurnedOff() {
+    return Object.keys(state).some(function (name) { return state[name].p2Saved && !state[name].p2; });
+  }
+  function closePublishConfirm() { publishOverlay.hidden = true; publishBtn.focus(); }
+  publishBtn.addEventListener('click', function () {
+    var published = document.getElementById('structurePublished').checked;
+    var risky = published && (activeVariant === 'p1' ? p1Changed() : p2TurnedOff());
+    if (!risky) { doPublish(); return; }
+    var text;
+    if (activeVariant === 'p1') {
+      // Name what changed across all fields: search, filter, or both
+      var names = Object.keys(state);
+      var searchChanged = names.some(function (n) { return state[n].p1.search !== state[n].p1Saved.search; });
+      var filterChanged = names.some(function (n) { return state[n].p1.filter !== state[n].p1Saved.filter; });
+      var settings = searchChanged && filterChanged ? 'search and filter settings' : (filterChanged ? 'filter settings' : 'search settings');
+      // Permission branch: no link here (reindexing before publishing does nothing); the toast carries it
+      var who = document.getElementById('canReindex').checked ? 'you reindex existing content' : 'an administrator reindexes existing content';
+      text = 'You have made changes to the ' + settings + ' that may affect existing content once published. Be aware that results may be inconsistent until ' + who + '. Are you sure you want to continue?';
+    } else {
+      text = 'You have made changes to the search settings that may affect existing search, filters, and Collections. Once published, these updates are processed in the background and will take some time to fully apply. Are you sure you want to continue?';
+    }
+    document.getElementById('publishConfirmText').textContent = text;
+    publishOverlay.hidden = false;
+    document.getElementById('publishConfirmBtn').focus();
+  });
+  document.getElementById('publishConfirmBtn').addEventListener('click', function () { closePublishConfirm(); doPublish(); });
+  publishOverlay.querySelectorAll('[data-publish-cancel]').forEach(function (b) { b.addEventListener('click', closePublishConfirm); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !publishOverlay.hidden) closePublishConfirm(); });
+
+  // Add Field menu (CMS structure dropdown) — opens/closes only, adds nothing
+  var addField = document.getElementById('addField');
+  var addTrigger = addField.querySelector('.btn');
+  function setAddOpen(open) {
+    addField.classList.toggle('is-open', open);
+    addTrigger.setAttribute('aria-expanded', open);
+  }
+  addTrigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    setAddOpen(!addField.classList.contains('is-open'));
+  });
+  addField.querySelectorAll('.cms-structure-dropdown__item').forEach(function (item) {
+    item.addEventListener('click', function () { setAddOpen(false); addTrigger.focus(); });
+  });
+  document.addEventListener('click', function (e) { if (!addField.contains(e.target)) setAddOpen(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setAddOpen(false); });
+
+  // Proposal switcher (persisted in the URL hash: #p1, #p2)
+  var switchBtns = document.querySelectorAll('#variantSwitch .btn');
+  function showVariant(v) {
+    if (v !== 'p1' && v !== 'p2') v = 'p1';
+    activeVariant = v;
+    document.querySelectorAll('.variant').forEach(function (el) { el.hidden = el.getAttribute('data-variant') !== v; });
+    switchBtns.forEach(function (b) {
+      var on = b.getAttribute('data-variant') === v;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on);
+    });
+    if (location.hash.slice(1) !== v) history.replaceState(null, '', '#' + v);
+    render();
+  }
+  switchBtns.forEach(function (b) {
+    b.addEventListener('click', function () { showVariant(b.getAttribute('data-variant')); });
+  });
+  showVariant(location.hash.slice(1));
+
+  // Prototype: show / hide dev annotations (pins + notes)
+  var devBtn = document.getElementById('devNotesBtn');
+  function setNotes(show) {
+    devBtn.setAttribute('aria-pressed', show);
+    document.getElementById('devNotesBtnText').textContent = show ? 'Hide Dev Notes' : 'Show Dev Notes';
+    document.querySelectorAll('.dev-notes').forEach(function (n) { n.hidden = !show; });
+    document.querySelectorAll('.option__row .dev-pin').forEach(function (pin) { pin.hidden = !show; });
+  }
+  devBtn.addEventListener('click', function () { setNotes(devBtn.getAttribute('aria-pressed') !== 'true'); });
+  setNotes(true);
+})();
+</script>
+
+</body>
+</html>

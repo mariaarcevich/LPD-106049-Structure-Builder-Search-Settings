@@ -120,19 +120,6 @@
   .publish-toast { position: fixed; left: var(--spacing-7); bottom: var(--spacing-7); z-index: 1100; max-width: 400px; }
   .publish-toast[hidden] { display: none; }
 
-  /* Dev annotations (prototype-only, not product UI) — purple so they never read as product */
-  .dev-pin { display: inline-flex; align-items: center; justify-content: center; width: var(--spacing-5); height: var(--spacing-5); border-radius: var(--rounded-full); background: var(--color-chart-purple-d1); color: var(--color-white); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); line-height: 1; flex-shrink: 0; }
-  .dev-notes { align-self: stretch; margin-top: var(--spacing-5); padding: var(--spacing-5) var(--spacing-6); background: var(--color-chart-purple-l5); border: 1px dashed var(--color-chart-purple-l1); border-radius: var(--rounded-md); color: var(--color-dark); font-size: var(--font-size-base); line-height: 1.5; }
-  .dev-notes[hidden], .dev-pin[hidden] { display: none; }
-  .dev-notes__head { display: flex; align-items: center; gap: var(--spacing-3); margin: 0 0 var(--spacing-4); font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-chart-purple-d2); }
-  .dev-notes__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--spacing-5); }
-  .dev-note { display: grid; grid-template-columns: auto 1fr; gap: var(--spacing-3); }
-  .dev-note__title { margin: 0 0 var(--spacing-2); font-weight: var(--font-weight-bold); }
-  .dev-note p { margin: 0 0 var(--spacing-2); }
-  .dev-note ul { margin: 0 0 var(--spacing-2); padding-left: var(--spacing-6); }
-  .dev-note li { margin-bottom: var(--spacing-1); }
-  .dev-note code { font-size: var(--font-size-sm); padding: 0 var(--spacing-1); background: var(--color-white); border-radius: var(--rounded-sm); }
-
   /* Prototype control panel (not product UI): dev notes / proposal / proposal settings */
   .proto-bar { position: fixed; right: var(--spacing-7); bottom: calc(var(--spacing-8) + var(--spacing-10) + var(--spacing-4)); z-index: 30; display: flex; flex-direction: column; gap: var(--spacing-4); padding: var(--spacing-4) var(--spacing-5); background: var(--color-white); border: 1px solid var(--color-secondary-l3); border-radius: var(--rounded-lg); box-shadow: var(--shadow-lg); }
   .proto-bar__row { display: flex; align-items: center; gap: var(--spacing-5); }
@@ -140,11 +127,6 @@
   .proto-bar__title { min-width: 88px; font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); color: var(--color-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
   .proto-bar__branch { padding-left: var(--spacing-5); border-left: 1px solid var(--color-secondary-l3); }
   .proto-bar__branch[hidden] { display: none; }
-
-  /* Dev notes switch — purple + dashed like the notes, so it never reads as a proposal option */
-  .dev-toggle { background: var(--color-chart-purple-l5); border: 1px dashed var(--color-chart-purple-l1); color: var(--color-chart-purple-d2); }
-  .dev-toggle:hover { background: var(--color-chart-purple-l5); color: var(--color-chart-purple-d2); border-style: solid; }
-  .dev-toggle[aria-pressed="false"] { background: var(--color-white); }
 
   /* Floating help button (product chrome) */
   .help-fab { position: fixed; right: var(--spacing-8); bottom: var(--spacing-8); background: var(--color-dark); border-color: var(--color-dark); color: var(--color-white); box-shadow: var(--shadow-md); }
@@ -413,9 +395,6 @@
                   </span>
                   <span class="checkbox__label">Searchable</span>
                 </label>
-                <span class="dev-pin" aria-label="Dev note 1">1</span>
-                <span class="dev-pin" aria-label="Dev note 4">4</span>
-                <span class="dev-pin" aria-label="Dev note 5">5</span>
               </div>
               <p class="option__desc">Allow users to search by this field.</p>
             </div>
@@ -429,75 +408,11 @@
                   </span>
                   <span class="checkbox__label">Filterable</span>
                 </label>
-                <span class="dev-pin" aria-label="Dev note 2">2</span>
-                <span class="dev-pin" aria-label="Dev note 3">3</span>
               </div>
               <p class="option__desc">Enable filtering and sorting by this field.</p>
             </div>
 
 
-            <!-- Dev annotations — prototype only, not product UI -->
-            <aside class="dev-notes" aria-label="Dev Notes">
-              <p class="dev-notes__head"><svg class="lexicon-icon"><use href="#code"></use></svg> Dev Notes</p>
-              <ol class="dev-notes__list">
-              <li class="dev-note">
-                <span class="dev-pin" aria-hidden="true">1</span>
-                <div>
-                  <p class="dev-note__title">Two Independent Index Options</p>
-                  <ul>
-                    <li><strong>Searchable</strong> → indexes the <strong>Text</strong> form (analyzed, language-aware) for full-text search.</li>
-                    <li><strong>Filterable</strong> → indexes the <strong>Keyword</strong> form (value as-is) for filters, sorting and facet counts.</li>
-                  </ul>
-                  <p>Both checked → both forms are indexed (not possible today). Both unchecked → the field is not indexed, so no extra on/off option is needed. Note: here Searchable means full-text only; Filterable also covers sorting and facet counts.</p>
-                </div>
-              </li>
-              <li class="dev-note">
-                <span class="dev-pin" aria-hidden="true">2</span>
-                <div>
-                  <p class="dev-note__title">Defaults by Field Type</p>
-                  <p>Preset when the field is created, so most editors never need to touch them:</p>
-                  <ul>
-                    <li><strong>Text:</strong> Searchable and Filterable.</li>
-                    <li><strong>Long Text, Rich Text:</strong> Searchable only.</li>
-                    <li><strong>Select from List, Date, Date and Time, Numeric, Decimal, Boolean:</strong> Filterable only.</li>
-                  </ul>
-                  <p>Migration keeps today's behavior: Keyword → Filterable, Text → Searchable.</p>
-                </div>
-              </li>
-              <li class="dev-note">
-                <span class="dev-pin" aria-hidden="true">3</span>
-                <div>
-                  <p class="dev-note__title">Changes Still Need a Reindex</p>
-                  <p>Changing an option on a field that already has content only affects new and edited content; existing content needs a reindex that only administrators can run (Control Panel &gt; Search &gt; Index Actions).</p>
-                  <p>No persistent message in the Advanced tab (LPD-106049). Same pattern as the existing "Delete Fields" modal:</p>
-                  <ul>
-                    <li><strong>On change:</strong> on a published structure, unchecking Searchable / Filterable when it is currently enabled opens a "Change Search Settings" warning modal whose copy follows the option: "Changing this setting may break search (Searchable) / filtering (Filterable) where this field is currently used once the content structure is published. Are you sure you want to continue?" Enabling an option or reverting an unpublished change shows nothing. Cancel reverts the checkbox; "Do not show me this again." skips it for later changes.</li>
-                    <li><strong>On publish:</strong> the existing "Publish Content Structure Changes" danger modal also covers these changes, naming what changed (search settings, filter settings, or search and filter settings): "You have made changes to the search settings that may affect existing content once published. Be aware that results may be inconsistent until you reindex existing content (or, without Search Admin access: until an administrator reindexes existing content). Are you sure you want to continue?" (New and edited content uses the new settings, older content the previous ones.) No link here. Cancel / Publish.</li>
-                    <li><strong>After publishing:</strong> reindexing before publishing does nothing, so the follow-up comes now. The success toast carries the next step and stays until closed: users who can reindex (Search Admin access) get "Reindex in Index Actions…" with a direct link that opens in a new window; everyone else gets "Ask an administrator to reindex this content structure…", with no link.</li>
-                    <li><strong>Reindex Pending:</strong> the structure shows a "Reindex Pending" warning label (next to its title here, and ideally in the Content Structures list) until existing content is reindexed. Its tooltip gives the path to admins ("Reindex it in Control Panel &gt; Search &gt; Index Actions") and tells other users to ask an administrator. Admins could also be notified automatically.</li>
-                  </ul>
-                </div>
-              </li>
-              <li class="dev-note">
-                <span class="dev-pin" aria-hidden="true">4</span>
-                <div>
-                  <p class="dev-note__title">No Language Selector</p>
-                  <p>The per-field language selector is removed.</p>
-                  <ul>
-                    <li><strong>Localizable fields:</strong> each translation is analyzed with its own language.</li>
-                    <li><strong>Non-localizable fields:</strong> use the content's language. If it can't be determined, fall back to the default language of the Space (or site) where the content is created, and to the instance default language only as a last resort.</li>
-                  </ul>
-                </div>
-              </li>
-              <li class="dev-note">
-                <span class="dev-pin" aria-hidden="true">5</span>
-                <div>
-                  <p class="dev-note__title">No Per-Field AI Search Option</p>
-                  <p>Removed on purpose. Semantic search builds one embedding per content item from several fields, so an AI option on each field doesn't match how it works, and editors can't judge which fields matter or what they cost. If control is needed, it would live at structure level (e.g. "Fields Used in AI Search"). TBD.</p>
-                </div>
-              </li>
-              </ol>
-            </aside>
           </div>
 
           <!-- ═══ Proposal 2 — Tibor: always index both forms (Search spike target) ═══ -->
@@ -512,54 +427,11 @@
                   </span>
                   <span class="checkbox__label">Searchable</span>
                 </label>
-                <span class="dev-pin" aria-label="Dev note 1">1</span>
-                <span class="dev-pin" aria-label="Dev note 2">2</span>
-                <span class="dev-pin" aria-label="Dev note 3">3</span>
               </div>
               <p class="option__desc">Allow searching, filtering, and sorting by this field.</p>
             </div>
 
 
-            <!-- Dev annotations — prototype only, not product UI -->
-            <aside class="dev-notes" aria-label="Dev Notes">
-              <p class="dev-notes__head"><svg class="lexicon-icon"><use href="#code"></use></svg> Dev Notes</p>
-              <ol class="dev-notes__list">
-              <li class="dev-note">
-                <span class="dev-pin" aria-hidden="true">1</span>
-                <div>
-                  <p class="dev-note__title">Searchable Always Indexes Both Forms: Keyword and Text</p>
-                  <p>When a field is searchable, the search framework must always index it in both forms at the same time:</p>
-                  <ul>
-                    <li><strong>Keyword</strong> (value stored as-is): filters, sorting and facet counts.</li>
-                    <li><strong>Text</strong> (analyzed: tokenized, accent/plural folding, language-aware): full-text search.</li>
-                  </ul>
-                  <p>The Keyword vs Text choice is removed from the UI. Since both forms always exist, there is no index-type setting left to change, so a configuration change can never require a full reindex and can never break Collections, facets or Headless queries that filter or sort by this field.</p>
-                  <p>Turning Searchable on or off never asks for a manual reindex: new and edited content applies immediately, and existing content is caught up by a scheduled background task that administrators can view, schedule and cancel. Structure editors never need Search Admin access.</p>
-                  <p><strong>Turning Searchable on:</strong> no message in the Advanced tab and no confirmation. After publishing, the success toast adds the follow-up and stays until closed: "The content structure was published. Search updates are processed in the background and will take some time to fully apply." Only in this case: when Searchable was turned off, the background update is already explained in the confirmation before publishing.</p>
-                  <p><strong>Turning Searchable off:</strong> on a published structure, unchecking a currently searchable field opens a "Change Search Settings" warning modal (same pattern as "Delete Fields") says: "Changing this setting may break search and filtering where this field is currently used once the content structure is published. Are you sure you want to continue?" (Searchable covers both here). Cancel reverts the checkbox; "Do not show me this again." skips it for later changes. On publish, the existing "Publish Content Structure Changes" danger modal also covers it: "You have made changes to the search settings that may affect existing search, filters, and Collections. Once published, these updates are processed in the background and will take some time to fully apply. Are you sure you want to continue?"</p>
-                  <p>Trade-off: loses the "filter only" case (e.g. internal codes) and depends on the Search team confirming the extra index cost is acceptable. Migration: existing Keyword or Text fields become Searchable with both forms.</p>
-                </div>
-              </li>
-              <li class="dev-note">
-                <span class="dev-pin" aria-hidden="true">2</span>
-                <div>
-                  <p class="dev-note__title">No Per-Field AI Search Option</p>
-                  <p>Removed on purpose. Semantic search builds one embedding per content item from several fields, so an AI option on each field doesn't match how it works, and editors can't judge which fields matter or what they cost. If control is needed, it would live at structure level (e.g. "Fields Used in AI Search"). TBD.</p>
-                </div>
-              </li>
-              <li class="dev-note">
-                <span class="dev-pin" aria-hidden="true">3</span>
-                <div>
-                  <p class="dev-note__title">No Language Selector</p>
-                  <p>The per-field language selector is removed.</p>
-                  <ul>
-                    <li><strong>Localizable fields:</strong> each translation is analyzed with its own language.</li>
-                    <li><strong>Non-localizable fields:</strong> use the content's language. If it can't be determined, fall back to the default language of the Space (or site) where the content is created, and to the instance default language only as a last resort.</li>
-                  </ul>
-                </div>
-              </li>
-              </ol>
-            </aside>
           </div>
         </section>
 
@@ -632,14 +504,8 @@
   <template id="reindexLinkTpl"><a class="alert__link" href="/group/control_panel/manage?p_p_id=com_liferay_portal_search_admin_web_portlet_SearchAdminPortlet&amp;_com_liferay_portal_search_admin_web_portlet_SearchAdminPortlet_tabs1=index-actions" target="_blank" rel="noopener">Index Actions<span class="sr-only"> (Opens a New Window)</span><svg class="lexicon-icon" aria-hidden="true"><use href="#shortcut"></use></svg></a></template>
 
   <!-- Prototype controls — not part of the product UI.
-       Row 1: dev notes · Row 2: proposal · Row 3: settings of the selected proposal -->
+       Row 1: proposal · Row 2: settings of the selected proposal -->
   <div class="proto-bar" role="group" aria-label="Prototype Options">
-    <div class="proto-bar__row">
-      <button class="btn btn--sm dev-toggle" type="button" id="devNotesBtn" aria-pressed="true">
-        <svg class="lexicon-icon"><use href="#code"></use></svg>
-        <span id="devNotesBtnText">Hide Dev Notes</span>
-      </button>
-    </div>
     <div class="proto-bar__row">
       <span class="proto-bar__title">Proposal</span>
       <div class="btn-group" id="variantSwitch">
@@ -900,16 +766,6 @@
   });
   showVariant(location.hash.slice(1));
 
-  // Prototype: show / hide dev annotations (pins + notes)
-  var devBtn = document.getElementById('devNotesBtn');
-  function setNotes(show) {
-    devBtn.setAttribute('aria-pressed', show);
-    document.getElementById('devNotesBtnText').textContent = show ? 'Hide Dev Notes' : 'Show Dev Notes';
-    document.querySelectorAll('.dev-notes').forEach(function (n) { n.hidden = !show; });
-    document.querySelectorAll('.option__row .dev-pin').forEach(function (pin) { pin.hidden = !show; });
-  }
-  devBtn.addEventListener('click', function () { setNotes(devBtn.getAttribute('aria-pressed') !== 'true'); });
-  setNotes(true);
 })();
 </script>
 
